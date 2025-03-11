@@ -31,6 +31,7 @@ def send_notification(request):
         title = data.get("title", "デフォルトタイトル")
         body = data.get("body", "デフォルトメッセージ")
         icon_url = data.get("icon_url")
+        url = "https://www.ajinomoto.co.jp/"  # 外部URL
 
         print(f"[INFO] 通知送信: {title} - {body}")
 
@@ -38,11 +39,7 @@ def send_notification(request):
         if not token:
             return JsonResponse({"error": "FCM トークンが指定されていません"}, status=400)
 
-        # Firebase でプッシュ通知を作成
-        # message = messaging.Message(
-        #     notification=messaging.Notification(title=title, body=body, icon=icon_url),
-        #     token=token,
-        # )
+        # FCMメッセージの作成
         message = messaging.Message(
             token=token,
             webpush=messaging.WebpushConfig(
@@ -50,11 +47,12 @@ def send_notification(request):
                     title=title,
                     body=body,
                     icon=icon_url
-                )
+                ),
+                data={  
+                    "url": url  # `data` の中に URL を明示的に含める
+                }
             )
         )
-
-        # 通知を送信
         response = messaging.send(message)
         print(f"[SUCCESS] FCM 通知送信成功: {response}")
         return JsonResponse({"message": "通知が送信されました", "response": response})
@@ -64,6 +62,7 @@ def send_notification(request):
     except Exception as e:
         print(f"[ERROR] FCM 通知送信エラー: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+
 
 @csrf_exempt
 def send_scheduled_notification(request):
@@ -80,6 +79,7 @@ def send_scheduled_notification(request):
         body = data.get("body", "デフォルトメッセージ")
         delay = int(data.get("delay", 1))
         icon_url = data.get("icon_url")
+        url = "https://www.ajinomoto.co.jp/"
 
         print(f"[INFO] {delay}秒後に通知予定: {title} - {body}")
 
@@ -102,7 +102,10 @@ def send_scheduled_notification(request):
                             title=title,
                             body=body,
                             icon=icon_url
-                        )
+                        ),
+                        data={  
+                            "url": url  # `data` の中に URL を明示的に含める
+                        }
                     )
                 )
                 response = messaging.send(message)

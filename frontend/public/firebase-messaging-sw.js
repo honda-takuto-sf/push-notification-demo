@@ -1,4 +1,4 @@
-// サービスワーカーのインストールイベント
+// Service Worker のインストールイベント
 self.addEventListener("install", (event) => {
     console.log("[Service Worker] インストール完了");
     event.waitUntil(self.skipWaiting());
@@ -10,14 +10,16 @@ self.addEventListener("push", (event) => {
 
     try {
         const data = event.data.json();
+        console.log("[Service Worker] 受信データ:", data);
+
         const title = data.notification?.title || "通知";
         const options = {
             body: data.notification?.body || "新しいメッセージがあります。",
             icon: data.notification?.icon,
-            image: data.notification?.image
+            data: { url: data.data?.url } // `data.url` に設定
         };
 
-        console.log("[Service Worker] 通知を表示:", title, options);
+        console.log("[Service Worker] 通知オプション:", options);
         event.waitUntil(self.registration.showNotification(title, options));
     } catch (error) {
         console.error("[Service Worker] 通知データのJSON解析失敗:", error);
@@ -26,24 +28,27 @@ self.addEventListener("push", (event) => {
 
 // 通知をタップしたときのイベント
 self.addEventListener("notificationclick", (event) => {
-    console.log("[Service Worker] 通知がクリックされました");
-
+    console.log("[Service Worker] 通知がクリックされました", event);
     event.notification.close(); // 通知を閉じる
 
-    const url = event.notification.data?.url || "https://ab16-240b-10-dcc1-1400-70d7-8d2d-8a0c-22c0.ngrok-free.app/"; // デフォルトURL
+    const url = event.notification.data?.url || "https://default-url.com/";
+    console.log("[Service Worker] 遷移先URL:", url);
 
     event.waitUntil(
-        clients
-            .matchAll({ type: "window", includeUncontrolled: true })
-            .then((windowClients) => {
+        self.clients.claim().then(() => { // PWAの制御をService Workerが確実に取得
+            return self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
                 for (const client of windowClients) {
                     if (client.url === url && "focus" in client) {
                         return client.focus();
                     }
                 }
-                if (clients.openWindow) {
-                    return clients.openWindow(url);
+                // PWAの内部リンクなら開く、それ以外なら Safari で開く
+                if (url.startsWith("https://your-pwa-domain.com")) {
+                    return self.clients.openWindow(url);
+                } else {
+                    return self.clients.openWindow(url); // iOSでは Safari で開く
                 }
-            })
+            });
+        })
     );
 });

@@ -23,7 +23,7 @@ export default function Notifications() {
   );
   const [loading, setLoading] = useState<boolean>(true);
   const fixedToken =
-    "eau_AToLpmanV-cBZz7lQ9:APA91bGAXI0QTm73s9H9k7w8jUJvEYiQqbFJdyqQJibIfv4QMSVQudH3GmQOz1_cM_A-ADoBgswkEMpPsLJ8TKb7pYEoCBPw0zOR4a1TIdNLFlmsZsXuRC8";
+    "cFaNovgVTbIvE1qCH8cx0p:APA91bG_mPZtCPVCZg9RJ1DcJUhky5zCMwbfdAnQgH8VHBm_Z_3yOJj9KO_zQnoNni2Eh_JhkOLgBu9AlpNeR_HDJ0_JCldJtaD8nVkmFpkuxawuhXVFpNE";
 
   useEffect(() => {
     async function initializeNotifications() {
