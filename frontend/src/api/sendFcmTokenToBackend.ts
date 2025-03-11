@@ -11,6 +11,7 @@ export const sendFcmTokenToBackend = async (token: string): Promise<object> => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token }),
+            credentials: 'include'
         });
 
         if (!response.ok) {

@@ -6,14 +6,15 @@
  * @param delay - 送信までの遅延時間（秒）
  * @returns {Promise<object>} - APIのレスポンスデータ
  */
-export const sendScheduledNotification = async (token: string, title: string, body: string, delay: number): Promise<object> => {
+export const sendScheduledNotification = async (token: string, title: string, body: string, delay: number, icon_url: string): Promise<object> => {
     try {
-        console.log("[API] スケジュール通知送信開始:", { token, title, body, delay });
+        console.log("[API] スケジュール通知送信開始:", { token, title, body, delay, icon_url });
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/send-scheduled-notification/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token, title, body, delay }),
+            body: JSON.stringify({ token, title, body, delay, icon_url }),
+            credentials: 'include'
         });
 
         if (!response.ok) {

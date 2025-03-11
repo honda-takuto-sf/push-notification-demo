@@ -17,17 +17,19 @@ export default function Notifications() {
     const [isTokenSaved, setTokenSaved] = useState<boolean | null>(null);
     const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+    const fixedToken = "er3UO3NKF5TSPxJj9ULDBe:APA91bHTwvUCFKl0jshE9M-iWppPwOC7hsD8abe4o6Q2Ywdy-P0FlwTxF_nFYb5_XtrgV9WL3k3EHWz-rchNLExXnUbv-QVAURGb-tet-7GQgNIP1fUIagg";
 
     useEffect(() => {
         async function initializeNotifications() {
             try {
-                console.log("[INFO] 通知機能の初期化開始");
+                alert("[INFO] 通知機能の初期化開始");
                 setLoading(true);
 
                 // **1. サービスワーカーの登録**
                 if ("serviceWorker" in navigator) {
                     await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
                     console.log("[SUCCESS] Service Worker 登録成功");
+                    alert("[SUCCESS] Service Worker 登録成功");
                 }
 
                 // **2. 通知の許可をリクエスト**
@@ -44,6 +46,7 @@ export default function Notifications() {
                 const retrievedToken = await requestFCMToken();
                 if (!retrievedToken) {
                     console.warn("[WARN] FCM トークンを取得できませんでした");
+                    alert("[WARN] FCM トークンを取得できませんでした");
                     setLoading(false);
                     return;
                 }
@@ -52,8 +55,9 @@ export default function Notifications() {
 
                 // **4. バックエンドにトークンを保存**
                 const saveResponse = await sendFcmTokenToBackend(retrievedToken);
-                if (!saveResponse || saveResponse.error) {
-                    console.warn("[ERROR] FCM トークンの保存に失敗しました");
+                if (!saveResponse) {
+                    console.error("[ERROR] FCM トークンの保存に失敗しました");
+                    alert("[ERROR] FCM トークンの保存に失敗しました");
                     setLoading(false);
                     return;
                 }
@@ -80,15 +84,67 @@ export default function Notifications() {
     /**
      * FCM トークンの保存状態を確認
      */
-    const checkTokenStatus = async () => {
-        if (!token) {
-            console.warn("[WARN] FCM トークンが未取得です");
+const checkTokenStatus = async () => {
+    if (!token) {
+        alert("[WARN] FCM トークンが未取得です。新しく取得します。");
+
+        // **FCMトークンを新しく取得**
+        const newToken = await requestFCMToken();
+        if (!newToken) {
+            alert("[ERROR] FCM トークンの取得に失敗しました。");
             return;
         }
-        console.log("[INFO] トークンの保存状態を確認:", token);
-        const tokenExists = await checkFcmToken(token);
+
+        alert(`[INFO] 新しく取得した FCM トークン: ${newToken}`);
+        setToken(newToken);
+
+        // **バックエンドにトークンを保存**
+        const saveResponse = await sendFcmTokenToBackend(newToken);
+        if (!saveResponse) {
+            alert("[ERROR] バックエンドへの FCM トークン保存に失敗しました。");
+            return;
+        }
+        alert("[SUCCESS] FCM トークンをバックエンドに保存しました。");
+
+        // **保存後、トークンの状態を再確認**
+        const tokenExists = await checkFcmToken(newToken);
         setTokenSaved(tokenExists);
-    };
+        alert(`[INFO] トークンがバックエンドに保存されているか: ${tokenExists}`);
+        return;
+    }
+
+    alert(`[INFO] 既存の FCM トークンを確認: ${token}`);
+    const tokenExists = await checkFcmToken(token);
+    setTokenSaved(tokenExists);
+    alert(`[INFO] トークンがバックエンドに保存されているか: ${tokenExists}`);
+
+    // **トークンが存在しなければ、再取得して保存**
+    if (!tokenExists) {
+        alert("[WARN] トークンがバックエンドに保存されていません。新しく取得します。");
+
+        const newToken = await requestFCMToken();
+        if (!newToken) {
+            alert("[ERROR] 新しい FCM トークンの取得に失敗しました。");
+            return;
+        }
+
+        alert(`[INFO] 新しく取得した FCM トークン: ${newToken}`);
+        setToken(newToken);
+
+        const saveResponse = await sendFcmTokenToBackend(newToken);
+        if (!saveResponse) {
+            alert("[ERROR] バックエンドへの FCM トークン保存に失敗しました。");
+            return;
+        }
+        alert("[SUCCESS] 新しい FCM トークンをバックエンドに保存しました。");
+
+        // **保存後、再確認**
+        const tokenExistsAfterSave = await checkFcmToken(newToken);
+        setTokenSaved(tokenExistsAfterSave);
+        alert(`[INFO] 新しいトークンがバックエンドに保存されたか: ${tokenExistsAfterSave}`);
+    }
+};
+
 
     /**
      * フォアグラウンド通知を送信
@@ -99,7 +155,7 @@ export default function Notifications() {
             return;
         }
         console.log("[INFO] フォアグラウンド通知を送信");
-        await sendNotification(token, "フォアグラウンド通知", "この通知は onMessage を使っています");
+        await sendNotification(token, "フォアグラウンド通知", "この通知は onMessage を使っています", "/icon-192x192.png");
     };
 
     /**
@@ -111,8 +167,25 @@ export default function Notifications() {
             return;
         }
         console.log("[INFO] バックグラウンド通知を送信");
-        await sendScheduledNotification(token, "バックグラウンド通知", "この通知は Service Worker で処理されます", 30);
+        await sendScheduledNotification(token, "バックグラウンド通知", "この通知は Service Worker で処理されます", 10, "/192x192.png");
     };
+
+        /**
+     * 固定の FCM トークンに通知を送信
+     */
+        const sendNotificationToFixedToken = async () => {
+            alert("[INFO] 固定トークンに通知を送信");
+            await sendNotification(fixedToken, "固定トークン通知", "この通知は特定のトークン宛です", "/icon-192x192.png");
+        };
+    
+        /**
+         * 固定の FCM トークンにバックグラウンド通知を送信
+         */
+        const sendScheduledNotificationToFixedToken = async () => {
+            alert("[INFO] 固定トークンにバックグラウンド通知を送信");
+            await sendScheduledNotification(fixedToken, "固定トークンBG通知", "この通知は特定のトークン宛です", 10, "/192x192.png");
+        };
+    
 
     return (
         <div className="p-4 max-w-sm mx-auto text-center">
@@ -183,6 +256,19 @@ export default function Notifications() {
                 className="block w-full mt-4 py-2 bg-yellow-500 text-white rounded"
             >
                 通知許可
+            </button>
+            <button
+                onClick={sendNotificationToFixedToken}
+                className="block w-full mt-4 py-2 bg-purple-500 text-white rounded"
+            >
+                固定トークンにフォアグラウンド通知
+            </button>
+
+            <button
+                onClick={sendScheduledNotificationToFixedToken}
+                className="block w-full mt-4 py-2 bg-purple-700 text-white rounded"
+            >
+                固定トークンにバックグラウンド通知 (10秒後)
             </button>
         </div>
     );

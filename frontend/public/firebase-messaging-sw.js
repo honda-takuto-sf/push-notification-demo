@@ -13,7 +13,7 @@ self.addEventListener("push", (event) => {
         const title = data.notification?.title || "通知";
         const options = {
             body: data.notification?.body || "新しいメッセージがあります。",
-            icon: "/icon-192x192.png",
+            icon: data.notification?.icon,
         };
 
         console.log("[Service Worker] 通知を表示:", title, options);

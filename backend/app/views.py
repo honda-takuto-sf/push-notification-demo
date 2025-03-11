@@ -30,6 +30,7 @@ def send_notification(request):
         token = data.get("token")
         title = data.get("title", "デフォルトタイトル")
         body = data.get("body", "デフォルトメッセージ")
+        icon_url = data.get("icon_url")
 
         print(f"[INFO] 通知送信: {title} - {body}")
 
@@ -38,9 +39,19 @@ def send_notification(request):
             return JsonResponse({"error": "FCM トークンが指定されていません"}, status=400)
 
         # Firebase でプッシュ通知を作成
+        # message = messaging.Message(
+        #     notification=messaging.Notification(title=title, body=body, icon=icon_url),
+        #     token=token,
+        # )
         message = messaging.Message(
-            notification=messaging.Notification(title=title, body=body),
             token=token,
+            webpush=messaging.WebpushConfig(
+                notification=messaging.WebpushNotification(
+                    title=title,
+                    body=body,
+                    icon=icon_url
+                )
+            )
         )
 
         # 通知を送信
@@ -67,7 +78,8 @@ def send_scheduled_notification(request):
         token = data.get("token")
         title = data.get("title", "デフォルトタイトル")
         body = data.get("body", "デフォルトメッセージ")
-        delay = int(data.get("delay", 30))
+        delay = int(data.get("delay", 1))
+        icon_url = data.get("icon_url")
 
         print(f"[INFO] {delay}秒後に通知予定: {title} - {body}")
 
@@ -78,9 +90,20 @@ def send_scheduled_notification(request):
         def send_delayed_notification():
             time.sleep(delay)
             try:
+                # message = messaging.Message(
+                #     notification=messaging.Notification(title=title, body=body, ),
+                #     token=token,
+                # )
+                # メッセージの作成
                 message = messaging.Message(
-                    notification=messaging.Notification(title=title, body=body),
                     token=token,
+                    webpush=messaging.WebpushConfig(
+                        notification=messaging.WebpushNotification(
+                            title=title,
+                            body=body,
+                            icon=icon_url
+                        )
+                    )
                 )
                 response = messaging.send(message)
                 print(f"[SUCCESS] バックグラウンド通知送信成功: {response}")
@@ -134,8 +157,6 @@ def check_fcm_token(request):
         return JsonResponse({"error": "無効なリクエストです"}, status=400)
 
     try:
-        print(f"[INFO] リクエストヘッダー: {dict(request.headers)}")
-        print(f"[INFO] クエリパラメータ: {request.GET}")
 
         token = request.GET.get("token")
         if not token:
@@ -145,8 +166,9 @@ def check_fcm_token(request):
         exists = FCMToken.objects.filter(token=token).exists()
         print(f"[INFO] FCM トークン {token} の存在確認: {exists}")
 
+        # 明示的に application/json を指定
         return JsonResponse({"exists": exists})
 
     except Exception as e:
         print(f"[ERROR] FCM トークン確認エラー: {e}")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500, content_type="application/json")

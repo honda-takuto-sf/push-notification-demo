@@ -52,12 +52,14 @@ const getMessagingInstance = async (): Promise<Messaging | null> => {
 export const requestFCMToken = async (): Promise<string | null> => {
     if (!("PushManager" in window)) {
         console.warn("[WARN] このブラウザは Web Push をサポートしていません");
+        alert("[WARN] このブラウザは Web Push をサポートしていません");
         return null;
     }
 
     const permissionGranted = await requestNotificationPermission();
     if (!permissionGranted) {
         console.warn("[WARN] 通知許可が拒否されたため、FCM トークンを取得できません");
+        alert("[WARN] 通知許可が拒否されたため、FCM トークンを取得できません");
         return null;
     }
 
@@ -66,6 +68,7 @@ export const requestFCMToken = async (): Promise<string | null> => {
             messaging = await getMessagingInstance();
             if (!messaging) {
                 console.error("[ERROR] messaging インスタンスの取得に失敗しました");
+                alert("[ERROR] messaging インスタンスの取得に失敗しました");
                 return null;
             }
         }
@@ -78,6 +81,7 @@ export const requestFCMToken = async (): Promise<string | null> => {
 
         if (!token) {
             console.warn("[WARN] FCM トークンの取得に失敗しました");
+            alert("[WARN] FCM トークンの取得に失敗しました");
             return null;
         }
 
