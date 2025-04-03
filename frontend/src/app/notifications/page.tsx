@@ -16,7 +16,6 @@ const NOTIFICATION_CONFIG = {
   title: "通知タイトルです。",
   message: "通知本文。通知本文。通知本文。通知本文。",
   icon: "/icon-192x192.png",
-  image: "/image-192x192.png",
   fixedToken:
     "coTtwoZu4e7Byykes9Eckm:APA91bFZsFcE3J3QMcvNDUyrLH9A4-dTVxPc7_G1IgsKYJ4o_dW3ydkNC15kDkSrT7sYznLPg5O27lTbvci7YbBeL21UsMt0x95RIc9uQMHbgiP4o9Nbvy8",
   url: "https://miraikondate.ajinomoto.co.jp/",
@@ -132,7 +131,6 @@ export default function Notifications() {
       NOTIFICATION_CONFIG.title,
       NOTIFICATION_CONFIG.message,
       NOTIFICATION_CONFIG.icon,
-      NOTIFICATION_CONFIG.image,
       NOTIFICATION_CONFIG.url
     );
   };

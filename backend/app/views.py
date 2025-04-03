@@ -30,7 +30,6 @@ def send_notification(request):
         title = data.get("title")
         body = data.get("body")
         icon_url = data.get("icon_url")
-        image = data.get("image")
         url = data.get("url")
         delay = 3  # 全通知共通の遅延秒数
 
@@ -49,7 +48,6 @@ def send_notification(request):
                             title=title,
                             body=body,
                             icon=icon_url,
-                            image=image,
                         ),
                         data={"url": url} if url else None
                     )
