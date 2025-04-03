@@ -9,8 +9,10 @@ export const sendFcmTokenToBackend = async (token: string): Promise<object> => {
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/save-fcm-token/`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "Origin": "https://petite-bobcats-juggle.loca.lt" },
             body: JSON.stringify({ token }),
+            credentials: 'include',
+            mode: "cors",
         });
 
         if (!response.ok) {

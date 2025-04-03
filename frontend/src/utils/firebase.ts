@@ -1,5 +1,5 @@
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,7 +10,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+console.time("Firebase Initialization Time");
+console.log("Firebase 初期化開始");
+
+let app: FirebaseApp;
+
+if (!getApps().length) {
+  console.log("Firebase 初期化開始");  // ✅ これで実行されたか確認
+  app = initializeApp(firebaseConfig);
+} else {
+  console.log("Firebase はすでに初期化済み");  // ✅ すでに初期化済みの場合
+  app = getApps()[0];
+}
+
+console.timeEnd("Firebase Initialization Time");
+
 const messaging = getMessaging(app);
 
 export { messaging, getToken, onMessage };

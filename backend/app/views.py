@@ -8,7 +8,7 @@ import os
 import threading
 import time
 
-# Firebase の認証情報を読み込む
+# Firebase 認証情報の初期化
 firebase_credentials_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
 if not firebase_credentials_path:
     raise ValueError("FIREBASE_CREDENTIALS_PATH が .env に設定されていません")
@@ -19,45 +19,7 @@ firebase_admin.initialize_app(cred)
 @csrf_exempt
 def send_notification(request):
     """
-    クライアントからのリクエストを受け取り、指定された FCM トークンにプッシュ通知を送信する。
-    """
-    if request.method != "POST":
-        return JsonResponse({"error": "無効なリクエストです"}, status=400)
-
-    try:
-        # リクエストボディを JSON としてパース
-        data = json.loads(request.body)
-        token = data.get("token")
-        title = data.get("title", "デフォルトタイトル")
-        body = data.get("body", "デフォルトメッセージ")
-
-        print(f"[INFO] 通知送信: {title} - {body}")
-
-        # トークンが指定されていない場合エラーを返す
-        if not token:
-            return JsonResponse({"error": "FCM トークンが指定されていません"}, status=400)
-
-        # Firebase でプッシュ通知を作成
-        message = messaging.Message(
-            notification=messaging.Notification(title=title, body=body),
-            token=token,
-        )
-
-        # 通知を送信
-        response = messaging.send(message)
-        print(f"[SUCCESS] FCM 通知送信成功: {response}")
-        return JsonResponse({"message": "通知が送信されました", "response": response})
-
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "無効な JSON データです"}, status=400)
-    except Exception as e:
-        print(f"[ERROR] FCM 通知送信エラー: {e}")
-        return JsonResponse({"error": str(e)}, status=500)
-
-@csrf_exempt
-def send_scheduled_notification(request):
-    """
-    指定された FCM トークンに対し、遅延送信のプッシュ通知を送信する。
+    クライアントからのリクエストを受け取り、指定された FCM トークンに通知を3秒後に送信する。
     """
     if request.method != "POST":
         return JsonResponse({"error": "無効なリクエストです"}, status=400)
@@ -65,36 +27,48 @@ def send_scheduled_notification(request):
     try:
         data = json.loads(request.body)
         token = data.get("token")
-        title = data.get("title", "デフォルトタイトル")
-        body = data.get("body", "デフォルトメッセージ")
-        delay = int(data.get("delay", 30))
+        title = data.get("title")
+        body = data.get("body")
+        icon_url = data.get("icon_url")
+        image = data.get("image")
+        url = data.get("url")
+        delay = 3  # 全通知共通の遅延秒数
 
-        print(f"[INFO] {delay}秒後に通知予定: {title} - {body}")
+        print(f"[INFO] 通知リクエスト受信（{delay}秒後に送信予定）: {data}")
 
         if not token:
             return JsonResponse({"error": "FCM トークンが指定されていません"}, status=400)
 
-        # 遅延送信用のスレッドを作成
-        def send_delayed_notification():
+        def send_delayed():
             time.sleep(delay)
             try:
                 message = messaging.Message(
-                    notification=messaging.Notification(title=title, body=body),
                     token=token,
+                    webpush=messaging.WebpushConfig(
+                        notification=messaging.WebpushNotification(
+                            title=title,
+                            body=body,
+                            icon=icon_url,
+                            image=image,
+                        ),
+                        data={"url": url} if url else None
+                    )
                 )
                 response = messaging.send(message)
-                print(f"[SUCCESS] バックグラウンド通知送信成功: {response}")
+                print(f"[SUCCESS] 通知送信成功: {response}")
             except Exception as e:
-                print(f"[ERROR] バックグラウンド通知送信エラー: {e}")
+                print(f"[ERROR] 通知送信エラー: {e}")
 
-        threading.Thread(target=send_delayed_notification).start()
+        threading.Thread(target=send_delayed).start()
 
         return JsonResponse({"message": f"{delay}秒後に通知を送信予定"})
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "無効な JSON データです"}, status=400)
     except Exception as e:
+        print(f"[ERROR] 通知送信処理中の例外: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+
 
 @csrf_exempt
 def save_fcm_token(request):
@@ -111,11 +85,8 @@ def save_fcm_token(request):
         if not token:
             return JsonResponse({"error": "FCM トークンが指定されていません"}, status=400)
 
-        # 既存のトークンがあるかチェックし、なければ新規登録
         obj, created = FCMToken.objects.get_or_create(token=token)
-
         print(f"[INFO] FCM トークン保存: {token} (新規: {created})")
-
         return JsonResponse({"message": "FCM トークンが保存されました", "created": created})
 
     except json.JSONDecodeError:
@@ -123,30 +94,25 @@ def save_fcm_token(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
 @csrf_exempt
 def check_fcm_token(request):
     """
     クライアントから受け取った FCM トークンがデータベースに存在するか確認する。
     """
-    print(f"[INFO] リクエスト内容: {request.GET}")
-
     if request.method != "GET":
         return JsonResponse({"error": "無効なリクエストです"}, status=400)
 
     try:
-        print(f"[INFO] リクエストヘッダー: {dict(request.headers)}")
-        print(f"[INFO] クエリパラメータ: {request.GET}")
-
         token = request.GET.get("token")
         if not token:
             print("[ERROR] FCM トークンが指定されていません")
             return JsonResponse({"error": "FCM トークンが指定されていません"}, status=400)
 
         exists = FCMToken.objects.filter(token=token).exists()
-        print(f"[INFO] FCM トークン {token} の存在確認: {exists}")
-
+        print(f"[INFO] FCM トークンの存在確認: {token} -> {exists}")
         return JsonResponse({"exists": exists})
 
     except Exception as e:
-        print(f"[ERROR] FCM トークン確認エラー: {e}")
+        print(f"[ERROR] トークン確認中のエラー: {e}")
         return JsonResponse({"error": str(e)}, status=500)

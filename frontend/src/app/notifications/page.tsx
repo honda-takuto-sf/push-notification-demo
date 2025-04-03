@@ -1,189 +1,200 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { requestFCMToken, requestNotificationPermission } from "../../utils/fcm";
+import {
+  requestFCMToken,
+  requestNotificationPermission,
+} from "../../utils/fcm";
 import { sendNotification } from "../../api/sendNotification";
-import { sendScheduledNotification } from "../../api/sendScheduledNotification";
 import { checkFcmToken } from "../../api/checkFcmToken";
 import { sendFcmTokenToBackend } from "../../api/sendFcmTokenToBackend";
 
-/**
- * 通知機能のコンポーネント
- * - FCMトークンの取得・保存・確認
- * - フォアグラウンド & バックグラウンド通知の送信
- */
+// ------------------------------
+// 設定変更可能な通知データ
+// ------------------------------
+const NOTIFICATION_CONFIG = {
+  title: "通知タイトルです。",
+  message: "通知本文。通知本文。通知本文。通知本文。",
+  icon: "/icon-192x192.png",
+  image: "/image-192x192.png",
+  fixedToken:
+    "coTtwoZu4e7Byykes9Eckm:APA91bFZsFcE3J3QMcvNDUyrLH9A4-dTVxPc7_G1IgsKYJ4o_dW3ydkNC15kDkSrT7sYznLPg5O27lTbvci7YbBeL21UsMt0x95RIc9uQMHbgiP4o9Nbvy8",
+  url: "https://miraikondate.ajinomoto.co.jp/",
+};
+
 export default function Notifications() {
-    const [token, setToken] = useState<string | null>(null);
-    const [isTokenSaved, setTokenSaved] = useState<boolean | null>(null);
-    const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+  const [token, setToken] = useState(null);
+  const [isTokenSaved, setTokenSaved] = useState(null);
+  const [permissionGranted, setPermissionGranted] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function initializeNotifications() {
-            try {
-                console.log("[INFO] 通知機能の初期化開始");
-                setLoading(true);
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        console.log("[INFO] 通知機能の初期化を開始します");
+        setLoading(true);
 
-                // **1. サービスワーカーの登録**
-                if ("serviceWorker" in navigator) {
-                    await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
-                    console.log("[SUCCESS] Service Worker 登録成功");
-                }
-
-                // **2. 通知の許可をリクエスト**
-                const granted = await requestNotificationPermission();
-                setPermissionGranted(granted);
-
-                if (!granted) {
-                    console.warn("[WARN] 通知の許可が拒否されました");
-                    setLoading(false);
-                    return;
-                }
-
-                // **3. FCMトークンの取得**
-                const retrievedToken = await requestFCMToken();
-                if (!retrievedToken) {
-                    console.warn("[WARN] FCM トークンを取得できませんでした");
-                    setLoading(false);
-                    return;
-                }
-                console.log("[INFO] 取得した FCM トークン:", retrievedToken);
-                setToken(retrievedToken);
-
-                // **4. バックエンドにトークンを保存**
-                const saveResponse = await sendFcmTokenToBackend(retrievedToken);
-                if (!saveResponse || saveResponse.error) {
-                    console.warn("[ERROR] FCM トークンの保存に失敗しました");
-                    setLoading(false);
-                    return;
-                }
-
-                // **5. トークンの保存状態を確認**
-                const tokenExists = await checkFcmToken(retrievedToken);
-                setTokenSaved(tokenExists);
-
-                if (!tokenExists) {
-                    console.warn("[WARN] FCM トークンがバックエンドに保存されていません");
-                }
-
-                console.log("[SUCCESS] 通知機能の初期化完了");
-            } catch (error) {
-                console.error("[ERROR] 通知の初期化中にエラーが発生しました:", error);
-            } finally {
-                setLoading(false);
-            }
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            console.log(
+              "[INFO] Service Worker は既に登録済みです",
+              registration
+            );
+          } else {
+            console.log("[INFO] Service Worker を登録します");
+            console.time("Service Worker 登録時間");
+            await navigator.serviceWorker.register(
+              "/firebase-messaging-sw.js",
+              {
+                scope: "/",
+              }
+            );
+            console.timeEnd("Service Worker 登録時間");
+            console.log("[SUCCESS] Service Worker 登録に成功しました");
+          }
         }
 
-        initializeNotifications();
-    }, []);
+        console.log("[INFO] 通知の許可状態:", Notification.permission);
+        const granted = await requestNotificationPermission();
+        setPermissionGranted(granted);
 
-    /**
-     * FCM トークンの保存状態を確認
-     */
-    const checkTokenStatus = async () => {
-        if (!token) {
-            console.warn("[WARN] FCM トークンが未取得です");
-            return;
+        if (!granted) {
+          console.warn("[WARN] 通知の許可が拒否されました");
+          return;
         }
-        console.log("[INFO] トークンの保存状態を確認:", token);
-        const tokenExists = await checkFcmToken(token);
+
+        const retrievedToken = await requestFCMToken();
+        if (!retrievedToken) {
+          console.error("[ERROR] FCM トークンの取得に失敗しました");
+          return;
+        }
+        console.log("[INFO] FCM トークン取得成功:", retrievedToken);
+        setToken(retrievedToken);
+
+        const tokenExists = await checkFcmToken(retrievedToken);
         setTokenSaved(tokenExists);
-    };
 
-    /**
-     * フォアグラウンド通知を送信
-     */
-    const handleForegroundNotification = async () => {
-        if (!token || !isTokenSaved) {
-            console.warn("[WARN] FCM トークンがバックエンドに保存されていません");
+        if (!tokenExists) {
+          console.log("[INFO] トークン未保存のためバックエンドに保存します");
+          const saveResponse = await sendFcmTokenToBackend(retrievedToken);
+          if (!saveResponse) {
+            console.error("[ERROR] FCM トークンの保存に失敗しました");
             return;
+          }
+          setTokenSaved(true);
+        } else {
+          console.log("[SUCCESS] 通知機能の初期化が完了しました");
         }
-        console.log("[INFO] フォアグラウンド通知を送信");
-        await sendNotification(token, "フォアグラウンド通知", "この通知は onMessage を使っています");
+      } catch (error) {
+        console.error("[ERROR] 通知初期化中にエラーが発生しました:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    /**
-     * バックグラウンド通知を送信
-     */
-    const handleBackgroundNotification = async () => {
-        if (!token || !isTokenSaved) {
-            console.warn("[WARN] FCM トークンがバックエンドに保存されていません");
-            return;
+    initializeNotifications();
+  }, []);
+
+  const checkTokenStatus = async () => {
+    try {
+      if (!token) {
+        alert("[INFO] トークン未取得のため新規取得します");
+        const newToken = await requestFCMToken();
+        if (!newToken) throw new Error("トークン取得失敗");
+        setToken(newToken);
+
+        const exists = await checkFcmToken(newToken);
+        if (!exists) {
+          await sendFcmTokenToBackend(newToken);
         }
-        console.log("[INFO] バックグラウンド通知を送信");
-        await sendScheduledNotification(token, "バックグラウンド通知", "この通知は Service Worker で処理されます", 30);
-    };
+        setTokenSaved(exists);
+        return;
+      }
 
-    return (
-        <div className="p-4 max-w-sm mx-auto text-center">
-            <h1 className="text-lg font-bold">Push通知テスト</h1>
+      const exists = await checkFcmToken(token);
+      setTokenSaved(exists);
+      alert(`[INFO] トークン保存状況: ${exists}`);
 
-            {loading && (
-                <div className="mt-4 p-2 bg-gray-500 text-white">
-                    <strong>処理中:</strong> 初期化中...
-                </div>
-            )}
+      if (!exists) {
+        await sendFcmTokenToBackend(token);
+        setTokenSaved(true);
+      }
+    } catch (e) {
+      alert("[ERROR] トークン確認中にエラー:", e);
+    }
+  };
 
-            {permissionGranted === false && (
-                <div className="mt-4 p-2 bg-red-500 text-white">
-                    <strong>エラー:</strong> 通知の許可が拒否されています
-                </div>
-            )}
-
-            {isTokenSaved === false && !loading && (
-                <div className="mt-4 p-2 bg-yellow-500 text-black">
-                    <strong>警告:</strong> FCM トークンがバックエンドに保存されていません
-                </div>
-            )}
-
-            {isTokenSaved === true && !loading && (
-                <div className="mt-4 p-2 bg-green-500 text-white">
-                    <strong>成功:</strong> FCM トークンがバックエンドに保存されています
-                </div>
-            )}
-
-            <button
-                onClick={handleForegroundNotification}
-                disabled={!isTokenSaved || loading}
-                className={`block w-full mt-4 py-2 rounded ${
-                    isTokenSaved && !loading ? "bg-blue-500 text-white" : "bg-gray-400 text-gray-700 cursor-not-allowed"
-                }`}
-            >
-                フォアグラウンド通知 (onMessage)
-            </button>
-
-            <button
-                onClick={handleBackgroundNotification}
-                disabled={!isTokenSaved || loading}
-                className={`block w-full mt-4 py-2 rounded ${
-                    isTokenSaved && !loading ? "bg-green-500 text-white" : "bg-gray-400 text-gray-700 cursor-not-allowed"
-                }`}
-            >
-                バックグラウンド通知 (Service Worker, 30秒後)
-            </button>
-
-            <button
-                onClick={checkTokenStatus}
-                disabled={loading}
-                className="block w-full mt-4 py-2 bg-blue-500 text-white rounded"
-            >
-                トークンの保存状態を確認
-            </button>
-
-            <button
-                onClick={() => {
-                    if (typeof window !== "undefined" && "Notification" in window) {
-                        Notification.requestPermission().then((permission) => {
-                            alert(permission);
-                        });
-                    } else {
-                        console.error("[ERROR] 通知APIがサポートされていません");
-                    }
-                }}
-                className="block w-full mt-4 py-2 bg-yellow-500 text-white rounded"
-            >
-                通知許可
-            </button>
-        </div>
+  const handleSendNotification = async (targetToken) => {
+    console.log("[INFO] 通知を送信します");
+    await sendNotification(
+      targetToken,
+      NOTIFICATION_CONFIG.title,
+      NOTIFICATION_CONFIG.message,
+      NOTIFICATION_CONFIG.icon,
+      NOTIFICATION_CONFIG.image,
+      NOTIFICATION_CONFIG.url
     );
+  };
+
+  return (
+    <div className="p-4 max-w-sm mx-auto text-center">
+      <h1 className="text-lg font-bold">Push通知テスト</h1>
+
+      <br></br>
+      <p>通知送信ボタン</p>
+      <button
+        onClick={() => handleSendNotification(token)}
+        disabled={!isTokenSaved || loading}
+        className={`block w-full mt-4 py-2 rounded ${
+          isTokenSaved && !loading
+            ? "bg-blue-500 text-white"
+            : "bg-gray-400 text-gray-700 cursor-not-allowed"
+        }`}
+      >
+        通知を送信（操作端末のトークン）
+      </button>
+
+      <button
+        onClick={() => handleSendNotification(NOTIFICATION_CONFIG.fixedToken)}
+        className="block w-full mt-4 py-2 bg-purple-500 text-white rounded"
+      >
+        通知を送信（固定トークン）
+      </button>
+
+      <br></br>
+      <p>ログ用</p>
+      {loading && (
+        <div className="mt-4 p-2 bg-gray-500 text-white">
+          処理中: 初期化中...
+        </div>
+      )}
+
+      {permissionGranted === false && (
+        <div className="mt-4 p-2 bg-red-500 text-white">
+          通知の許可が拒否されています
+        </div>
+      )}
+
+      {isTokenSaved === false && !loading && (
+        <div className="mt-4 p-2 bg-yellow-500 text-black">
+          FCM トークンがバックエンドに保存されていません
+        </div>
+      )}
+
+      {isTokenSaved === true && !loading && (
+        <div className="mt-4 p-2 bg-green-500 text-white">
+          FCM トークンが保存されています
+        </div>
+      )}
+
+      <button
+        onClick={checkTokenStatus}
+        disabled={loading}
+        className="block w-full mt-4 py-2 bg-blue-500 text-white rounded"
+      >
+        トークンの保存状態を確認
+      </button>
+    </div>
+  );
 }
