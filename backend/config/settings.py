@@ -137,11 +137,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
-# CORS_ALLOW_ALL_ORIGINS = False
-# CORS_ALLOWED_ORIGINS = [
-#     "https://ab16-240b-10-dcc1-1400-70d7-8d2d-8a0c-22c0.ngrok-free.app",
-#     "app://ab16-240b-10-dcc1-1400-70d7-8d2d-8a0c-22c0.ngrok-free.app"
-# ]
+
 CORS_ALLOW_HEADERS = [
     'content-type',
     'authorization',

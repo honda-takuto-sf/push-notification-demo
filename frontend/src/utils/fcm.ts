@@ -1,4 +1,4 @@
-import { getMessaging, getToken, onMessage, isSupported, Messaging } from "firebase/messaging";
+import { getMessaging, getToken, isSupported, Messaging } from "firebase/messaging";
 import { initializeApp, FirebaseApp } from "firebase/app";
 import { sendFcmTokenToBackend } from "../api/sendFcmTokenToBackend";
 
@@ -20,7 +20,10 @@ let messaging: Messaging | null = null;
  */
 const initializeFirebase = () => {
     if (!app) {
+        console.time("Firebase Initialization Time");
+        console.log("Firebase 初期化開始"); 
         app = initializeApp(firebaseConfig);
+        console.timeEnd("Firebase Initialization Time");
         console.log("[INFO] Firebase アプリを初期化しました");
     }
 };
@@ -52,14 +55,14 @@ const getMessagingInstance = async (): Promise<Messaging | null> => {
 export const requestFCMToken = async (): Promise<string | null> => {
     if (!("PushManager" in window)) {
         console.warn("[WARN] このブラウザは Web Push をサポートしていません");
-        alert("[WARN] このブラウザは Web Push をサポートしていません");
+        console.log("[WARN] このブラウザは Web Push をサポートしていません");
         return null;
     }
 
     const permissionGranted = await requestNotificationPermission();
     if (!permissionGranted) {
         console.warn("[WARN] 通知許可が拒否されたため、FCM トークンを取得できません");
-        alert("[WARN] 通知許可が拒否されたため、FCM トークンを取得できません");
+        console.log("[WARN] 通知許可が拒否されたため、FCM トークンを取得できません");
         return null;
     }
 
@@ -68,7 +71,7 @@ export const requestFCMToken = async (): Promise<string | null> => {
             messaging = await getMessagingInstance();
             if (!messaging) {
                 console.error("[ERROR] messaging インスタンスの取得に失敗しました");
-                alert("[ERROR] messaging インスタンスの取得に失敗しました");
+                console.log("[ERROR] messaging インスタンスの取得に失敗しました");
                 return null;
             }
         }
@@ -81,7 +84,7 @@ export const requestFCMToken = async (): Promise<string | null> => {
 
         if (!token) {
             console.warn("[WARN] FCM トークンの取得に失敗しました");
-            alert("[WARN] FCM トークンの取得に失敗しました");
+            console.log("[WARN] FCM トークンの取得に失敗しました");
             return null;
         }
 
@@ -95,28 +98,6 @@ export const requestFCMToken = async (): Promise<string | null> => {
         console.error("[ERROR] FCM トークン取得失敗:", error);
         return null;
     }
-};
-
-/**
- * **フォアグラウンド通知のセットアップ**
- * - `onMessage()` を使用し、通知が届いたときにコールバックを実行
- * @param callback - 通知を処理する関数 (title: string, body: string)
- */
-export const setupForegroundNotification = async (callback: (title: string, body: string) => void) => {
-    if (!messaging) {
-        messaging = await getMessagingInstance();
-        if (!messaging) {
-            console.error("[ERROR] フォアグラウンド通知の messaging インスタンス取得に失敗");
-            return;
-        }
-    }
-
-    console.log("[INFO] フォアグラウンド通知のリスナーを登録");
-    onMessage(messaging, (payload) => {
-        if (payload.notification) {
-            callback(payload.notification.title || "通知", payload.notification.body || "新しいメッセージがあります");
-        }
-    });
 };
 
 /**

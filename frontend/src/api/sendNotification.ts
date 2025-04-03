@@ -7,12 +7,13 @@
  */
 export const sendNotification = async (token: string, title: string, body: string, icon_url: string, image: string): Promise<object> => {
     try {
-        console.log("[API] 通知送信開始:", { token, title, body });
+        console.log("[API] 通知送信開始:", { token, title, body, icon_url, image });
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/send-notification/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token, title, body, icon_url, image }),
-            credentials: 'include'
+            credentials: 'include',
+            mode: "cors",
         });
 
         if (!response.ok) {
